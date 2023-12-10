@@ -1,0 +1,529 @@
+using Newtonsoft;
+using Newtonsoft.Json;
+using OVRSimpleJSON;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using Unity.VisualScripting;
+using Unity.VisualScripting.FullSerializer;
+using UnityEngine;
+using UnityEngine.UIElements;
+using static JSONReader;
+
+[System.Serializable]
+public class Payload
+{
+    public Angle angle;
+    public bool bounceout;
+    public int[] coordinates;
+    public string detectionTime;
+    public string sector;
+    public int[] sectorSuggestions;
+}
+
+[System.Serializable]
+public class Angle
+{
+    public float horizontal = 0;
+    public float vertical = 0;
+}
+/*
+public class Tower
+{
+    
+    DartsEvent data;
+    public string id;
+    public string type;
+    public Payload payload;
+    Vector3 position;
+    float x;
+    float y;
+    float z;
+
+    public Tower( Vector3 v)
+    {
+        this.position = v;
+        this.y = v.y;
+        this.z = v.z;
+        this.x= v.x;
+    }
+    public float TowerXGetter()
+    {
+        return x;
+    }
+    public float TowerYGetter()
+    {
+        return y;
+    }
+    public float TowerZGetter()
+    {
+        return z;
+    }
+
+    public Tower JsonToTower(string getData)
+    {
+        data = JsonConvert.DeserializeObject<DartsEvent>(getData);
+        // Assign the parsed values to the variables
+        id = data.id;
+        type = data.type;
+        Vector3 v = new Vector3();
+        if (type.Equals("THROW_DETECTED"))
+        {
+            payload = data.payload;
+            // Access specific values within the payload
+            float horizontal = data.payload.angle.horizontal;
+            float vertical = data.payload.angle.vertical;
+            bool bounceout = data.payload.bounceout;
+            int coordinateX = data.payload.coordinates[0];
+            int coordinateY = data.payload.coordinates[1];
+            string detectionTime = data.payload.detectionTime;
+            string sector = data.payload.sector;
+            string[] sectorSuggestions = data.payload.sectorSuggestions;
+            
+            v.x = coordinateX + horizontal;
+            v.y = coordinateY + vertical;
+            v.z = 10;
+            Tower t = new Tower(v);
+            Debug.Log(position.x);
+            Debug.Log(position.y);
+            return t;
+        }
+        else
+        {
+            return null;
+        }
+    }
+}
+*/
+public class DartsEvent : MonoBehaviour
+{
+    public WebSocketWorker WebSocketWorker; // Reference to the WebSocketHandler component
+    public GameObject towerPrefab;
+    public float x = 0;
+    public float y = 0;
+    public float z = 0;
+    public string id;
+    public string type;
+    public Payload payload;
+    DartsEvent datas;
+
+
+    public DartsEvent(string id, string type, Payload payload)
+    {
+        this.id = id;
+        this.type = type;
+        this.payload = payload;
+    }
+
+    public void CreateTower(string getData)
+    {
+         
+        DartsEvent data = ParseJson(getData);
+        // Assign the parsed values to the variables
+        id = data.id;
+        type = data.type;
+        Debug.Log("Before IF");
+        if (type.Equals("THROW_DETECTED"))
+        {
+            Debug.Log("inside throwDetected");
+            payload = data.payload;
+            // Access specific values within the payload
+            float horizontal = data.payload.angle.horizontal;
+            float vertical = data.payload.angle.vertical;
+            bool bounceout = data.payload.bounceout;
+            int coordinateX = data.payload.coordinates[0];
+            int coordinateY = data.payload.coordinates[1];
+            string detectionTime = data.payload.detectionTime;
+            string sector = data.payload.sector;
+            int[] sectorSuggestions = data.payload.sectorSuggestions;
+            Debug.Log("Coordinates settings");
+            x = coordinateX;
+            Debug.Log(x);
+            y = 15;
+            z = coordinateY;
+            Debug.Log("x: " + x);
+            Debug.Log("z: " + z);
+            Vector3 towerPos = new Vector3(x, y, z);
+            Instantiate(towerPrefab, towerPos, Quaternion.identity);
+        }
+
+    }
+    private DartsEvent ParseJson(string json)
+    {
+        
+        int idStart = json.IndexOf("\"id\":\"") + 6;
+        int idEnd = json.IndexOf("\",\"type\":");
+        id = json.Substring(idStart, idEnd - idStart);
+        Debug.Log(id);
+        // Locate the Type field
+        int typeStart = json.IndexOf("\"type\":\"") + 8;
+        int typeEnd = json.IndexOf("\",\"payload\":");
+        type = json.Substring(typeStart, typeEnd - typeStart);
+        Debug.Log(type);
+        /*
+        // Locate the Payload field
+        int payloadStart = json.IndexOf("\"payload\":{");
+        int payloadEnd = json.LastIndexOf("}}") + 2;
+        string payloadString = json.Substring(payloadStart, payloadEnd - payloadStart);
+        */
+        int payloadStart = json.IndexOf("\"payload\":{");
+        int payloadEnd = json.LastIndexOf("}}") + 2;
+        string payloadString = json.Substring(payloadStart, payloadEnd - payloadStart);
+        Debug.Log(payloadString);
+        // Extract the angle section within payload
+        int angleStart = payloadString.IndexOf("\"angle\":{");
+        int angleEnd = payloadString.IndexOf("},\"bounceout\":");
+        string angleString = payloadString.Substring(angleStart, angleEnd - angleStart + 1);
+        Debug.Log(angleString);
+        // Extract the bounceout field within payload
+        int bounceoutStart = payloadString.IndexOf("\"bounceout\":") + 12;
+        int bounceoutEnd = payloadString.IndexOf(",\"coordinates\":");
+        string bounceoutString = payloadString.Substring(bounceoutStart, bounceoutEnd - bounceoutStart);
+        Debug.Log(bounceoutString);
+        // Extract the coordinates section within payload
+        int coordinatesStart = payloadString.IndexOf("\"coordinates\":[") + 15;
+        int coordinatesEnd = payloadString.IndexOf("],\"detectionTime\":") - 1;
+        string coordinatesString = payloadString.Substring(coordinatesStart, coordinatesEnd - coordinatesStart + 1);
+        Debug.Log(coordinatesString);
+        // Extract the detectionTime field within payload
+        int detectionTimeStart = payloadString.IndexOf("\"detectionTime\":\"") + 16;
+        int detectionTimeEnd = payloadString.IndexOf("\",\"sector\":");
+        string detectionTimeString = payloadString.Substring(detectionTimeStart, detectionTimeEnd - detectionTimeStart);
+        Debug.Log(detectionTimeString);
+        // Extract the sector field within payload
+        int sectorStart = payloadString.IndexOf("\"sector\":\"") + 10;
+        int sectorEnd = payloadString.IndexOf("\",\"sectorSuggestions\":");
+        string sectorString = payloadString.Substring(sectorStart, sectorEnd - sectorStart);
+        Debug.Log(sectorString);
+        // Extract the sectorSuggestions section within payload
+        int sectorSuggestionsStart = payloadString.IndexOf("\"sectorSuggestions\":[") + 21;
+        int sectorSuggestionsEnd = payloadString.LastIndexOf("]") + 1;
+        string sectorSuggestionsString = payloadString.Substring(sectorSuggestionsStart, sectorSuggestionsEnd - sectorSuggestionsStart);
+        Debug.Log(sectorSuggestionsString);
+        // Assign the extracted values to the corresponding fields
+
+        Debug.Log("angle formation started " + angleString);
+        //Angle a = ParseAngle(angleString);
+        //payload.angle = a;
+        Debug.Log("angle formation finished");
+        Debug.Log(payload);
+        Debug.Log(payload.angle);
+        Debug.Log(bool.Parse(bounceoutString));
+        payload = LoadPayload(angleString, bounceoutString, coordinatesString, detectionTimeString, sectorString, sectorSuggestionsString);
+        Debug.Log(payload.angle);
+        Debug.Log(payload.bounceout);
+        Debug.Log(payload.coordinates);
+        Debug.Log(payload.detectionTime);
+        Debug.Log(payload.sector);
+        Debug.Log(payload.sectorSuggestions);
+        id = ExtractValue(json, "id");
+        type = ExtractValue(json, "type");
+        Debug.Log("Final ID " + id);
+        Debug.Log("FINAL TYPE " + type);
+        GameObject gameObject = new GameObject("DartsEvent");
+        datas = gameObject.AddComponent < DartsEvent>();
+        Debug.Log("GameObject Created Coordinates 0: " + datas.payload.coordinates[0]);
+        Debug.Log("GameObject Created Coordinates 1: " + datas.payload.coordinates[1]);
+
+        return datas;
+
+        /*
+        Debug.Log(json);
+        // Remove unnecessary whitespace characters
+        json = json.Replace(" ", "");
+        Debug.Log(json);
+        // Find the index of each field and extract its value
+        id = ExtractValue2(json, "id");
+        Debug.Log(id);
+        type = ExtractValue2(json, "type");
+        Debug.Log(type);
+        if (type.Equals("THROW_DETECTED"))
+        {
+            Payload payload1 = new Payload
+            {
+                angle = new Angle
+                {
+                    horizontal = float.Parse(ExtractValue2(json, "horizontal")),
+                    vertical = float.Parse(ExtractValue2(json, "vertical"))
+                },
+                bounceout = bool.Parse(ExtractValue2(json, "bounceout")),
+                coordinates = ExtractArrayValues(json, "coordinates"),
+                detectionTime = ExtractValue2(json, "detectionTime"),
+                sector = ExtractValue2(json, "sector"),
+                sectorSuggestions = ExtractArrayValues(json, "sectorSuggestions")
+            };
+            DartsEvent dar = new DartsEvent(id, type, payload1);
+            return dar;
+        }
+        return null;*/
+    }
+
+    public Payload LoadPayload(string angleString, string bounceoutString, string coordinatesString, string detectionTimeString, string sectorString, string sectorSuggestionsString)
+    {
+        Debug.Log("PayLoad Loading Started");
+        Payload loadedPayload = new Payload
+        {
+            angle = null,  //JsonUtility.FromJson<Angle>(angleString),
+            bounceout = false, // bool.Parse(bounceoutString),
+            coordinates = ParseCoordinates(coordinatesString),
+            detectionTime = null, //detectionTimeString,
+            sector = null, //sectorString,
+            sectorSuggestions = null
+        };
+        Debug.Log(loadedPayload);
+        return loadedPayload;
+    }
+
+    public static int[] ParseCoordinates(string coordinatesString)
+    {
+        // Remove any unwanted characters or whitespace
+        coordinatesString = coordinatesString.Replace("[", "").Replace("]", "");
+
+        // Split the string by ',' to separate the individual integers
+        string[] coordinateStrings = coordinatesString.Split(',');
+
+        // Create an array to store the integers
+        int[] coordinates = new int[coordinateStrings.Length];
+
+        for (int i = 0; i < coordinateStrings.Length; i++)
+        {
+            if (int.TryParse(coordinateStrings[i], out int parsedValue))
+            {
+                coordinates[i] = parsedValue;
+            }
+            else
+            {
+                // Handle the case where parsing fails
+                // You can set a default value or throw an error as needed
+            }
+        }
+
+        return coordinates;
+    }
+
+        private Angle ParseAngle(string angleJson)
+    {
+        // Manually parse the "angle" section into an Angle object
+        /*  Debug.Log("angleJson started");
+          
+          Debug.Log("Dictonary Created");
+          string angleWithoutAngel = RemoveAnglePart(angleJson);
+          string[] angleProperties = angleWithoutAngel.Split(',');*/
+
+        Debug.Log("angleJson started");
+        //Dictionary<string, float> data = new Dictionary<string, float>();
+        Dictionary<string, Dictionary<string, float>> data = JsonConvert.DeserializeObject <Dictionary<string, Dictionary<string, float>>>(angleJson);
+        Debug.Log("Dictonary Done");
+        Debug.Log("Data"+data);
+        float horizonts = 0;
+        float verts = 0;
+        if (data.TryGetValue("angle", out var angleDatas))
+        {
+            Debug.Log("Try: "+ data.TryGetValue("angle", out angleDatas));
+            if (angleDatas.TryGetValue("horizontal", out var horizontalValue))
+            {
+                horizonts = horizontalValue;
+                Debug.Log("Horizontal Value: " + horizontalValue);
+            }
+
+            if (angleDatas.TryGetValue("vertical", out var verticalValue))
+            {
+                verts = verticalValue;
+                Debug.Log("Vertical Value: " + verticalValue);
+            }
+
+        }
+        Angle angle = new Angle { horizontal = horizonts, vertical = verts };
+        Debug.Log("angle done + return");
+        return angle;
+
+
+
+
+        /*
+        Debug.Log("Angle Properties splited");
+        foreach (string property in angleProperties)
+        {
+            Debug.Log("ForEach" + property + " " + angleProperties);
+            string[] keyValue = property.Split(':');
+            Debug.Log("key Value" + keyValue);
+            string key = keyValue[0].Trim('"', ' ');
+            Debug.Log("key "+key);
+            int decimalPlacesToRound = 4; // Set the number of decimal places you want to round to
+            string stringValue = keyValue[1]; // This should be the string you want to parse
+            Debug.Log("StringValue "+stringValue);
+            float value = 0.0f; // Default value if parsing fails
+            stringValue = new string(stringValue.Where(c => char.IsDigit(c) || c == '.' || c == '-').ToArray());
+
+            if (float.TryParse(stringValue, out value))
+            {
+                // Parsing succeeded; now round the value
+                value = (float)Math.Round(value, decimalPlacesToRound);
+                Debug.Log(value);
+            }
+            else
+            {
+                // Handle the case where parsing fails
+                Debug.LogError("Failed to parse a valid float from the string.");
+            }
+            Debug.Log("Value "+value);
+            angleData[key] = value;
+        }
+        Debug.Log("foreach done");
+        // Create an Angle object from the parsed data*/
+        /*Angle angle = new Angle
+        {
+            horizontal = angleData["horizontal"],
+            vertical = angleData["vertical"]
+        };*/
+    }
+    private string ExtractValue(string json, string field)
+    {
+        string pattern = "\"" + field + "\":\\s*\"(.*?)\"";
+        Match match = Regex.Match(json, pattern);
+
+        if (match.Success)
+        {
+            return match.Groups[1].Value;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    public static string RemoveAnglePart(string jsonString)
+    {
+        // Find the index of the opening curly brace of "angle"
+        int angleStartIndex = jsonString.IndexOf("\"angle\":");
+
+        if (angleStartIndex == -1)
+        {
+            // "angle" not found, return the original string
+            return jsonString;
+        }
+
+        // Create a StringBuilder to build the modified JSON string
+        StringBuilder newJson = new StringBuilder(jsonString);
+
+        // Find the closing curly brace of "angle"
+        int angleEndIndex = jsonString.IndexOf("}", angleStartIndex) + 1;
+
+        // Remove the "angle" part from the string
+        newJson.Remove(angleStartIndex, angleEndIndex - angleStartIndex);
+
+        return newJson.ToString();
+    }
+    /*
+    private string ExtractValue(string json, string field)
+{
+    int startIndex = json.IndexOf("\"" + field + "\":") + field.Length + 3;
+        Debug.Log(json.IndexOf("\"" + field + "\":") + field.Length + 3);
+        Debug.Log(startIndex);
+        int endIndex = json.IndexOf("\"", startIndex);
+        Debug.Log(endIndex);
+        Debug.Log(json.Substring(startIndex, endIndex - startIndex));
+        return json.Substring(startIndex, endIndex - startIndex);
+}*/
+    private string ExtractValue2(string json, string field)
+    {
+        int startIndex = json.IndexOf("\"" + field + "\":") + field.Length + 3;
+        int endIndex = json.IndexOf("\"", startIndex);
+        Debug.Log(startIndex + " " + endIndex);
+        Debug.Log(json.Substring(startIndex, endIndex - startIndex)); 
+        return json.Substring(startIndex, endIndex - startIndex);
+    }
+
+    private int[] ExtractArrayValues(string json, string field)
+    {
+        string arrayString = ExtractValue2(json, field);
+        string[] elements = arrayString.Split(',');
+        int[] values = new int[elements.Length];
+        for (int i = 0; i < elements.Length; i++)
+        {
+            values[i] = int.Parse(elements[i]);
+        }
+        return values;
+    }
+
+
+
+
+    //public Angle angle;
+
+    /*
+    public string id;
+    public string type;
+
+    public string payload;
+    public string angle;
+    public float horizontal;
+    public float vertical;
+
+    public bool bounceout;
+    public int coordinateX;
+    public int coordinateY;
+    public string detectionTime;
+    public string sector;
+    public string[] sectorSuggestions;
+    */
+    /*
+    public class Angle
+    {
+        public double horizontal { get; set; }
+        public double vertical { get; set; }
+    }
+
+    public class Payload
+    {
+        public Angle angle { get; set; }
+        public bool bounceout { get; set; }
+        public List<int> coordinates { get; set; }
+        public string detectionTime { get; set; }
+        public string sector { get; set; }
+        public List<string> sectorSuggestions { get; set; }
+    }
+
+    public class Root
+    {
+        public string id { get; set; }
+        public string type { get; set; }
+        public Payload payload { get; set; }
+    }*/
+
+    public void OnDataReceived(string data)
+    {
+        // Handle the received data here
+        //Debug.Log("Received data: " + data);
+        //ThrowData td = new ThrowData();
+
+    }
+
+
+
+    private void dismissed(Dictionary<string, string> values)
+    {
+        //= strSource.IndexOf(strStart, 0) + strStart.Length;
+        //return x;
+    }
+    private void Start()
+    {
+        if (WebSocketWorker != null)
+        {
+
+            // Subscribe to the custom event and specify a method to handle the data
+            WebSocketWorker.onDataReceived.AddListener(OnDataReceived);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (WebSocketWorker != null)
+        {
+            // Unsubscribe from the event to avoid memory leaks
+            WebSocketWorker.onDataReceived.RemoveListener(OnDataReceived);
+        }
+    }
+}

@@ -1,0 +1,197 @@
+using Newtonsoft;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using Unity.VisualScripting;
+using Unity.VisualScripting.FullSerializer;
+using UnityEngine;
+
+[System.Serializable]
+public class Payload
+{
+    public Angle angle;
+    public bool bounceout;
+    public int[] coordinates;
+    public string detectionTime;
+    public string sector;
+    public string[] sectorSuggestions;
+}
+
+[System.Serializable]
+public class Angle
+{
+    public float horizontal;
+    public float vertical;
+}
+
+public class Tower
+{
+    
+    DartsEvent data;
+    public string id;
+    public string type;
+    public Payload payload;
+    Vector3 position;
+    float x;
+    float y;
+    float z;
+
+    public Tower( Vector3 v)
+    {
+        this.position = v;
+        this.y = v.y;
+        this.z = v.z;
+        this.x= v.x;
+    }
+    public float TowerXGetter()
+    {
+        return x;
+    }
+    public float TowerYGetter()
+    {
+        return y;
+    }
+    public float TowerZGetter()
+    {
+        return z;
+    }
+
+    public Tower JsonToTower(string getData)
+    {
+        data = JsonConvert.DeserializeObject<DartsEvent>(getData);
+        // Assign the parsed values to the variables
+        id = data.id;
+        type = data.type;
+        Vector3 v = new Vector3();
+        if (type.Equals("THROW_DETECTED"))
+        {
+            payload = data.payload;
+            // Access specific values within the payload
+            float horizontal = data.payload.angle.horizontal;
+            float vertical = data.payload.angle.vertical;
+            bool bounceout = data.payload.bounceout;
+            int coordinateX = data.payload.coordinates[0];
+            int coordinateY = data.payload.coordinates[1];
+            string detectionTime = data.payload.detectionTime;
+            string sector = data.payload.sector;
+            string[] sectorSuggestions = data.payload.sectorSuggestions;
+            
+            v.x = coordinateX + horizontal;
+            v.y = coordinateY + vertical;
+            v.z = 10;
+            Tower t = new Tower(v);
+            Debug.Log(position.x);
+            Debug.Log(position.y);
+            return t;
+        }
+        else
+        {
+            return null;
+        }
+    }
+}
+
+public class DartsEvent : MonoBehaviour
+{
+    public WebSocketWorker WebSocketWorker; // Reference to the WebSocketHandler component
+    public GameObject towerPrefab;
+    public float x;
+    public float y;
+    public float z;
+    internal string id;
+    internal string type;
+    internal Payload payload;
+   
+
+    public void CreateTower(Tower data, string json)
+    {
+        Tower t;
+        t = data.JsonToTower(json);
+        if (t.type.Equals("THROW_DETECTED"))
+        {
+            float x = t.TowerXGetter();
+            float y = t.TowerYGetter();
+            float z = t.TowerZGetter();
+            Vector3 towerPos = new Vector3(x, y, z);
+            Instantiate(towerPrefab, towerPos, Quaternion.identity);
+        }
+    }
+
+    
+
+    //public Angle angle;
+
+    /*
+    public string id;
+    public string type;
+
+    public string payload;
+    public string angle;
+    public float horizontal;
+    public float vertical;
+
+    public bool bounceout;
+    public int coordinateX;
+    public int coordinateY;
+    public string detectionTime;
+    public string sector;
+    public string[] sectorSuggestions;
+    */
+    /*
+    public class Angle
+    {
+        public double horizontal { get; set; }
+        public double vertical { get; set; }
+    }
+
+    public class Payload
+    {
+        public Angle angle { get; set; }
+        public bool bounceout { get; set; }
+        public List<int> coordinates { get; set; }
+        public string detectionTime { get; set; }
+        public string sector { get; set; }
+        public List<string> sectorSuggestions { get; set; }
+    }
+
+    public class Root
+    {
+        public string id { get; set; }
+        public string type { get; set; }
+        public Payload payload { get; set; }
+    }*/
+
+    public void OnDataReceived(string data)
+    {
+        // Handle the received data here
+        //Debug.Log("Received data: " + data);
+        //ThrowData td = new ThrowData();
+        
+    }
+
+    
+
+    private void dismissed(Dictionary<string, string> values)
+    {
+        //= strSource.IndexOf(strStart, 0) + strStart.Length;
+        //return x;
+    }
+    private void Start()
+    {
+        if (WebSocketWorker != null)
+        {
+
+            // Subscribe to the custom event and specify a method to handle the data
+            WebSocketWorker.onDataReceived.AddListener(OnDataReceived);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (WebSocketWorker != null)
+        {
+            // Unsubscribe from the event to avoid memory leaks
+            WebSocketWorker.onDataReceived.RemoveListener(OnDataReceived);
+        }
+    }
+}
